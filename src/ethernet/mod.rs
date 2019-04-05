@@ -50,12 +50,18 @@ impl<'d> EthernetDevice<'d> {
         ethernet_mac: &mut ETHERNET_MAC,
         ethernet_dma: &'d mut ETHERNET_DMA,
         ethernet_address: EthernetAddress,
-    ) -> Result<Self, PhyError> {
+    ) -> Result<Self, (PhyError, &'d mut ETHERNET_DMA)> {
         use byteorder::{ByteOrder, LittleEndian};
 
-        init::init(rcc, syscfg, ethernet_mac, ethernet_dma)?;
+        match init::init(rcc, syscfg, ethernet_mac, ethernet_dma) {
+            Ok(_) => {},
+            Err(x) => { return Err((x, ethernet_dma)); },
+        }
 
-        let rx_device = RxDevice::new(rx_config)?;
+        let rx_device = match RxDevice::new(rx_config) {
+            Ok(x) => x,
+            Err(x) => return Err((x, ethernet_dma)),
+        };
         let tx_device = TxDevice::new(tx_config);
 
         ethernet_dma.dmardlar.write(|w| {
